@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calculator</title>
+  <style>
+    :root {
+      --bg: #0f1218;
+      --panel: #1a1f2b;
+      --key: #262c3c;
+      --key-hover: #323a4e;
+      --op: #3d5a99;
+      --op-hover: #4a6bb3;
+      --eq: #e8a317;
+      --eq-hover: #f0b33a;
+      --text: #f4f6fb;
+      --muted: #8b93a7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .calc {
+      width: min(360px, 92vw);
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 20px;
+    }
+
+    .display {
+      min-height: 96px;
+      margin-bottom: 16px;
+      padding: 12px 8px;
+      text-align: right;
+    }
+
+    .expr {
+      min-height: 24px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      word-break: break-all;
+    }
+
+    .value {
+      font-size: 2.4rem;
+      font-weight: 600;
+      line-height: 1.2;
+      word-break: break-all;
+    }
+
+    .keys {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      background: var(--key);
+      color: var(--text);
+      font-size: 1.2rem;
+      height: 58px;
+      cursor: pointer;
+    }
+
+    button:hover { background: var(--key-hover); }
+    button.op { background: var(--op); }
+    button.op:hover { background: var(--op-hover); }
+    button.eq { background: var(--eq); color: #1a1404; font-weight: 700; }
+    button.eq:hover { background: var(--eq-hover); }
+    button.span-2 { grid-column: span 2; }
+  </style>
+</head>
+<body>
+  <main class="calc">
+    <div class="display">
+      <div class="expr" id="expr"></div>
+      <div class="value" id="value">0</div>
+    </div>
+    <div class="keys">
+      <button data-action="clear">AC</button>
+      <button data-action="back">⌫</button>
+      <button class="op" data-op="%">%</button>
+      <button class="op" data-op="/">÷</button>
+      <button data-digit="7">7</button>
+      <button data-digit="8">8</button>
+      <button data-digit="9">9</button>
+      <button class="op" data-op="*">×</button>
+      <button data-digit="4">4</button>
+      <button data-digit="5">5</button>
+      <button data-digit="6">6</button>
+      <button class="op" data-op="-">−</button>
+      <button data-digit="1">1</button>
+      <button data-digit="2">2</button>
+      <button data-digit="3">3</button>
+      <button class="op" data-op="+">+</button>
+      <button class="span-2" data-digit="0">0</button>
+      <button data-digit=".">.</button>
+      <button class="eq" data-action="equals">=</button>
+    </div>
+  </main>
+  <script>
+    const exprEl = document.getElementById("expr");
+    const valueEl = document.getElementById("value");
+
+    let current = "0";
+    let previous = null;
+    let operator = null;
+    let fresh = false;
+
+    function update() {
+      exprEl.textContent = previous !== null && operator
+        ? `${format(previous)} ${symbol(operator)}`
+        : "";
+      valueEl.textContent = format(current);
+    }
+
+    function symbol(op) {
+      return { "+": "+", "-": "−", "*": "×", "/": "÷", "%": "%" }[op];
+    }
+
+    function format(n) {
+      if (n === "Error") return n;
+      const [int, dec] = String(n).split(".");
+      const withCommas = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return dec !== undefined ? `${withCommas}.${dec}` : withCommas;
+    }
+
+    function inputDigit(d) {
+      if (fresh) {
+        current = d === "." ? "0." : d;
+        fresh = false;
+      } else if (d === ".") {
+        if (!current.includes(".")) current += ".";
+      } else {
+        current = current === "0" ? d : current + d;
+      }
+      update();
+    }
+
+    function compute(a, op, b) {
+      const x = Number(a);
+      const y = Number(b);
+      if (op === "/" && y === 0) return "Error";
+      const result = op === "+" ? x + y
+        : op === "-" ? x - y
+        : op === "*" ? x * y
+        : op === "/" ? x / y
+        : x % y;
+      return Number.isFinite(result) ? String(Number(result.toPrecision(12))) : "Error";
+    }
+
+    function setOp(op) {
+      if (current === "Error") return;
+      if (previous !== null && operator && !fresh) {
+        current = compute(previous, operator, current);
+      }
+      previous = current;
+      operator = op;
+      fresh = true;
+      update();
+    }
+
+    function equals() {
+      if (previous === null || operator === null || current === "Error") return;
+      current = compute(previous, operator, current);
+      previous = null;
+      operator = null;
+      fresh = true;
+      update();
+    }
+
+    function clearAll() {
+      current = "0";
+      previous = null;
+      operator = null;
+      fresh = false;
+      update();
+    }
+
+    function backspace() {
+      if (fresh || current === "Error") {
+        current = "0";
+        fresh = false;
+      } else if (current.length <= 1 || (current.length === 2 && current.startsWith("-"))) {
+        current = "0";
+      } else {
+        current = current.slice(0, -1);
+      }
+      update();
+    }
+
+    document.querySelector(".keys").addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      if (btn.dataset.digit !== undefined) inputDigit(btn.dataset.digit);
+      else if (btn.dataset.op) setOp(btn.dataset.op);
+      else if (btn.dataset.action === "equals") equals();
+      else if (btn.dataset.action === "clear") clearAll();
+      else if (btn.dataset.action === "back") backspace();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (/^[0-9.]$/.test(e.key)) inputDigit(e.key);
+      else if (["+", "-", "*", "/", "%"].includes(e.key)) setOp(e.key);
+      else if (e.key === "Enter" || e.key === "=") { e.preventDefault(); equals(); }
+      else if (e.key === "Backspace") backspace();
+      else if (e.key === "Escape") clearAll();
+    });
+  </script>
+</body>
+</html>
